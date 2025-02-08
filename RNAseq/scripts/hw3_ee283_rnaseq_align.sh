@@ -13,7 +13,7 @@ module load hisat2/2.2.1
 module load samtools/1.10
 
 # Define paths
-index="ref/dmel_trans"
+index="/pub/$USER/EE283/ref/dmel_trans"
 rawDataDir="/pub/$USER/EE283/RNAseq/rawdata"
 outputDir="/pub/$USER/EE283/RNAseq/output"
 
@@ -29,19 +29,35 @@ tissue_index=$((($SLURM_ARRAY_TASK_ID - 1) % 2))
 sample_id=${samples[$sample_index]}
 tissue_type=("E" "B")
 
-# Define input files based on tissue type
-input_R1="${rawDataDir}/${sample_id}_${tissue_type[$tissue_index]}_0_R1.fastq.gz"
-input_R2="${rawDataDir}/${sample_id}_${tissue_type[$tissue_index]}_0_R2.fastq.gz"
+# Find the appropriate replicate files
+input_R1=$(find $rawDataDir -name "${sample_id}_${tissue_type[$tissue_index]}_*_R1.fastq.gz" | head -n 1)
+input_R2=$(find $rawDataDir -name "${sample_id}_${tissue_type[$tissue_index]}_*_R2.fastq.gz" | head -n 1)
+
+# Check if files were found
+if [[ -z $input_R1 || -z $input_R2 ]]; then
+  echo "Error: Input files for ${sample_id}_${tissue_type[$tissue_index]} not found."
+  exit 1
+fi
+
+# Extract replicate number from the filename
+replicate=$(basename $input_R1 | cut -d'_' -f3)
+
+# Define output file names
+bam_file="${outputDir}/${sample_id}_${tissue_type[$tissue_index]}_${replicate}.bam"
+sorted_bam_file="${outputDir}/${sample_id}_${tissue_type[$tissue_index]}_${replicate}.sorted.bam"
+
+# Remove old output files if they exist
+rm -f $bam_file $sorted_bam_file $sorted_bam_file.bai
 
 # Align reads with Hisat2
 hisat2 -p $SLURM_CPUS_PER_TASK -x $index -1 $input_R1 -2 $input_R2 | \
-samtools view -bS - > $outputDir/${sample_id}_${tissue_type[$tissue_index]}.bam
+samtools view -bS - > $bam_file
 
 # Sort the BAM file
-samtools sort $outputDir/${sample_id}_${tissue_type[$tissue_index]}.bam -o $outputDir/${sample_id}_${tissue_type[$tissue_index]}.sorted.bam
+samtools sort $bam_file -o $sorted_bam_file
 
 # Index the sorted BAM file
-samtools index $outputDir/${sample_id}_${tissue_type[$tissue_index]}.sorted.bam
+samtools index $sorted_bam_file
 
 # Clean up intermediate file
-rm $outputDir/${sample_id}_${tissue_type[$tissue_index]}.bam
+rm $bam_file
