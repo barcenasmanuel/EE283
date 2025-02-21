@@ -13,7 +13,7 @@ module load picard-tools/2.27.1
 module load samtools/1.15.1
 
 # Define paths
-ref="/path/to/reference/genome.fasta"
+ref="/pub/$USER/EE283/ref/dmel-all-chromosome-r6.13.fasta"
 inputDir="/pub/$USER/EE283/DNAseq/output"
 outputDir="/pub/$USER/EE283/DNAseq/output/snp_results"
 mkdir -p $outputDir
